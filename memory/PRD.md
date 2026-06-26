@@ -49,6 +49,16 @@ A premium, cinematic two-player intimate card game. Modular decks combine into a
 - Custom scoring editor UI.
 - Optional onboarding flow.
 
+## Update — Intensity / Dominance System (2026-06-26)
+- New **Extreme Control** deck (8 decks / 118 cards) + **Dominance** preset; rich card model (partnerInstruction, tone, intensifier, holdSeconds, command chain).
+- **Mental Pressure** modifiers (random stacked rules: silence, eye contact, permission) shown as scene chips; toggle `cfg-mentalpressure`.
+- **Restricted State** banner (movement / speech / pace) derived from cards + modifiers.
+- **Commitment hold**: tier-3 / extreme scenes disable Lock with a "Hold — Ns" countdown ("cannot stop early").
+- **Power Reversals**: rare control-flip overlay; toggle `cfg-powerreversals`.
+- **Escalation scoring**: bonuses for modifiers + restricted + extreme cards (Dominance +60 vs Slow Burn +15).
+- Rich card editor fields (partner instruction + intensifier) in deck detail. Storage keys bumped to v2 to reseed.
+- Verified end-to-end + regression via testing agent (iteration 2, all pass).
+
 ## Notes
 - Audio/haptics are no-ops on web preview; validate on a device/build.
 - No mocked APIs. No authentication.
