@@ -132,6 +132,8 @@ export default function Play() {
     [session, scene, next, round, momentum, activeIndex, scores, streaks, elapsed, setSession],
   );
 
+  const cardHeight = useMemo(() => (scene.length > 3 ? 132 : 156), [scene.length]);
+
   if (!session || !preset) {
     return (
       <View style={styles.fallback}>
@@ -273,7 +275,6 @@ export default function Play() {
   };
 
   const maxTier = scene.length ? sceneMaxTier(scene) : 1;
-  const cardHeight = useMemo(() => (scene.length > 3 ? 132 : 156), [scene.length]);
 
   return (
     <View style={styles.root}>
