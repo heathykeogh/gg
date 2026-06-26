@@ -1,0 +1,168 @@
+{
+  "app_name": "Tension",
+  "personality": "6 Glass / Luxe DARK",
+  "personality_one_liner": "A premium, cinematic card experience built on deep atmospheric shadows, volumetric glow, and intimate tactile tension.",
+  "color": {
+    "surface": "#0C0C0E",
+    "onSurface": "#EAE6E1",
+    "surfaceSecondary": "#16161A",
+    "onSurfaceSecondary": "#D4CFCA",
+    "surfaceTertiary": "#222226",
+    "onSurfaceTertiary": "#AFAAA5",
+    "surfaceInverse": "#EAE6E1",
+    "onSurfaceInverse": "#0C0C0E",
+    "brand": "#8A1C2B",
+    "brandPrimary": "#A62235",
+    "onBrandPrimary": "#F9F6F0",
+    "brandSecondary": "#C5A570",
+    "onBrandSecondary": "#1A1713",
+    "brandTertiary": "#3D141B",
+    "onBrandTertiary": "#EAE6E1",
+    "success": "#2D5A43",
+    "onSuccess": "#E8F5E9",
+    "warning": "#C5A570",
+    "onWarning": "#1A1713",
+    "error": "#8A1C2B",
+    "onError": "#F9F6F0",
+    "border": "#2A2A30",
+    "borderStrong": "#45454C",
+    "divider": "#1F1F24"
+  },
+  "typography": {
+    "displayFontFamily": "Cormorant Garamond",
+    "textFontFamily": "Satoshi",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous cinematic spacing. Content breathes. Padding creates focus rather than density. Touch targets must remain large despite minimalistic aesthetic.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use on floating HUD panels over the game scene.",
+      "Use for bottom tab bar and header navigation.",
+      "Apply to modal bottom sheets handling deck customization."
+    ],
+    "dont's": [
+      "Do not use on primary cards to avoid muddiness; cards should be opaque and grounded.",
+      "Do not blur primary typography or player scores."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "A cinematic gateway to start a session, resume a game, or tweak settings, anchored by a deep moody background.",
+      "states": {
+        "loading": "Subtle pulsing logo center screen.",
+        "empty": "No active sessions. Display a premium 'Start Journey' CTA.",
+        "error": "Failed to load presets, with a retry button."
+      },
+      "layout": "Hero image taking top 40% of screen with a heavy gradient-to-dark scrim. The bottom 60% contains a floating glass panel with menu options (Start Game, Decks, Profiles). Primary CTA 'Start Scene' is heavily emphasized with a subtle ruby glow. No clutter, purely atmospheric."
+    },
+    {
+      "name": "Deck Management",
+      "purpose": "Full CRUD for cards and decks, organizing the rules of engagement.",
+      "states": {
+        "loading": "Skeleton list of cards.",
+        "empty": "A stylized abstract fog illustration with a prompt to 'Create Your First Deck'.",
+        "error": "Error loading local storage database."
+      },
+      "layout": "List of decks utilizing surfaceSecondary cards. Each card row has a subtle tinted icon container based on deck type. When editing a deck, use a smooth bottom sheet for adding/removing cards. A sticky CTA at the bottom allows saving the preset."
+    },
+    {
+      "name": "Scene Draw (Game Core)",
+      "purpose": "The core gameplay loop: drawing cards, flipping them to reveal prompts, and stacking them to build a continuous scene.",
+      "states": {
+        "loading": "Cards shuffling animation in the center.",
+        "empty": "Round complete / End of Deck.",
+        "error": "State error, gracefully recover to last card."
+      },
+      "layout": "A stacked card architecture. The active card is centrally elevated, with upcoming cards slightly overlapping beneath it to create depth. HUD (timer, momentum, scores) floats on a glass layer at the top. The bottom features a sticky, glowing primary CTA to 'Draw Next'. Swipe gestures handle card reveals. When stacked, previous cards recede slightly up the screen to form a timeline 'scene'."
+    },
+    {
+      "name": "Player Profiles & Leaderboard",
+      "purpose": "Track session history, win/loss stats, and local rankings.",
+      "states": {
+        "loading": "Skeleton profile stats.",
+        "empty": "No games played yet. Invite players to start.",
+        "error": "Failed to calculate stats."
+      },
+      "layout": "A two-column grid for key metrics (Wins, Streaks, Points). The leaderboard uses simple, elegant list rows with high contrast text for names and dim text for stats. Avatars use real photo uploads or elegant typography initials."
+    }
+  ],
+  "card_visual_identities": {
+    "Action": "Deep Ruby background with subtle grain; crimson glow.",
+    "Enhancer": "Dark Emerald background; soft forest glow.",
+    "Control": "Muted Antique Gold background; champagne highlights.",
+    "Time_Condition": "Charcoal/Silver monochrome; stark white text, no glow.",
+    "Momentum": "Deep Burgundy/Cinnamon background; warm ember glow.",
+    "Wild": "Ivory/Pearl off-white surfaceInverse; high contrast dark text.",
+    "Objective": "Pure Gunmetal slate; minimalist layout, strictly typographic."
+  },
+  "haptics": {
+    "card_draw": "Light impact on swipe start.",
+    "card_flip": "Medium impact on reveal.",
+    "card_stack": "Heavy impact when card locks into the scene stack.",
+    "timer_tick": "Soft selection tick for the last 5 seconds.",
+    "button_press": "Light impact."
+  },
+  "images": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1598084331228-71bd91b70e59?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHNoYWRvdyUyMHNpbGhvdWV0dGUlMjBjaW5lbWF0aWN8ZW58MHx8fHwxNzgyNTA0ODk1fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract silhouette standing in shadows"
+    },
+    "card_enhancer_texture": {
+      "url": "https://images.unsplash.com/photo-1635776062127-d379bfcba9f8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwbW9vZHklMjBncmFkaWVudCUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzgyNTA0ODk1fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark moody gradient texture for cards"
+    },
+    "empty_state_fog": {
+      "url": "https://images.unsplash.com/photo-1773851643467-6bd1ee0a0682?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMG15c3RlcnklMjBmb2clMjBlbGVnYW50fGVufDB8fHx8MTc4MjUwNDg5NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Elegant white smoke curling against a black background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow the '6 Glass / Luxe DARK' personality strictly. Do not use flat Material Design patterns.",
+    "Build the 'Scene Draw' screen as a layered Z-index stack. The top card should use `react-native-reanimated` for 3D flip and swipe-to-dismiss. When drawn, the card should visually slide up to become part of a 'scene history' list.",
+    "Integrate haptics precisely as mapped in the haptics block (card_draw, card_flip, card_stack). This tactile feedback is mandatory for the intimate/premium feel.",
+    "Ensure all text rendered over images uses a heavy gradient-to-dark scrim (top to bottom fade, ending at >= 80% opacity) for strict contrast.",
+    "Use volumetric lighting effects instead of standard drop shadows. Instead of a black shadow on a card, give it a soft, low-blur glow matching its specific category color.",
+    "The UI is offline-first. Rely on AsyncStorage or SQLite for saving custom presets, cards, and leaderboard stats. No authentication flows are required.",
+    "Card definitions must be mapped strictly to the 'card_visual_identities' block, with distinct colors/accents for Action, Enhancer, Control, Time, Momentum, Wild, and Objective cards.",
+    "NEVER use pure black (#000000) or pure white (#FFFFFF). Stick exactly to the defined surface off-black and pearl off-white tokens.",
+    "Avoid any use of banned colors (all shades of blue, purple, violet, indigo)."
+  ]
+}
