@@ -1,0 +1,466 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import GlassCard from "@/src/components/GlassCard";
+import SceneCard from "@/src/components/SceneCard";
+import { sound } from "@/src/audio/sound";
+import { drawScene, extractCarry, sceneMaxTier, sceneScore } from "@/src/game/engine";
+import { useGame } from "@/src/store/GameContext";
+import { SceneCard as SceneCardType, Session } from "@/src/types";
+import { colors, DECK_THEME, fonts, fontSize, radius, spacing, TIER_LABEL } from "@/src/theme/theme";
+import { haptic } from "@/src/utils/haptics";
+
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+export default function Play() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { session, decks, settings, setSession, finalizeSession } = useGame();
+
+  // local mutable game state seeded from session
+  const [scene, setScene] = useState<SceneCardType[]>(session?.currentScene ?? []);
+  const [next, setNext] = useState<SceneCardType[]>(session?.nextScene ?? []);
+  const [round, setRound] = useState(session?.round ?? 1);
+  const [momentum, setMomentum] = useState(session?.momentum ?? 0);
+  const [activeIndex, setActiveIndex] = useState(session?.activeIndex ?? 0);
+  const [scores, setScores] = useState<Record<string, number>>(session?.scores ?? {});
+  const [streaks, setStreaks] = useState<Record<string, number>>(session?.streaks ?? {});
+  const [elapsed, setElapsed] = useState(session?.elapsed ?? 0);
+  const [timeLeft, setTimeLeft] = useState(session?.preset.roundDuration ?? 180);
+  const [timeUp, setTimeUp] = useState(false);
+  const [revealKey, setRevealKey] = useState(0);
+  const [peek, setPeek] = useState(false);
+  const [exitAsk, setExitAsk] = useState(false);
+  const lastScore = useRef(0);
+
+  const preset = session?.preset;
+  const pulse = useSharedValue(1);
+
+  const gen = useCallback(
+    (carry: SceneCardType[]) => (preset ? drawScene(decks, preset, carry) : []),
+    [decks, preset],
+  );
+
+  // initial draw on first mount of a fresh session
+  useEffect(() => {
+    if (!session) return;
+    if (settings.ambient) sound.startAmbient();
+    if (scene.length === 0) {
+      const first = gen([]);
+      const upcoming = gen([]);
+      setScene(first);
+      setNext(upcoming);
+      setTimeLeft(preset!.roundDuration);
+      setRevealKey((k) => k + 1);
+      sound.play("draw");
+      haptic.light();
+    }
+    return () => sound.stopAmbient();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // countdown timer
+  useEffect(() => {
+    if (!preset) return;
+    const id = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          return 0;
+        }
+        if (t <= 6) {
+          sound.play("tick");
+          haptic.select();
+        }
+        return t - 1;
+      });
+      setElapsed((e) => e + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [preset]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && !timeUp) {
+      setTimeUp(true);
+      sound.play("lock");
+      haptic.warning();
+    }
+  }, [timeLeft, timeUp]);
+
+  // time-based win
+  useEffect(() => {
+    if (preset?.win.type === "time" && elapsed >= preset.win.value * 60) {
+      endGame();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed]);
+
+  // pulse the lock button when time runs out
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  useEffect(() => {
+    if (timeUp) {
+      pulse.value = withRepeat(withTiming(1.04, { duration: 600 }), -1, true);
+    } else {
+      pulse.value = withTiming(1);
+    }
+  }, [timeUp, pulse]);
+
+  const persist = useCallback(
+    (patch: Partial<Session>) => {
+      if (!session) return;
+      setSession({
+        ...session,
+        currentScene: scene,
+        nextScene: next,
+        round,
+        momentum,
+        activeIndex,
+        scores,
+        streaks,
+        elapsed,
+        ...patch,
+      });
+    },
+    [session, scene, next, round, momentum, activeIndex, scores, streaks, elapsed, setSession],
+  );
+
+  if (!session || !preset) {
+    return (
+      <View style={styles.fallback}>
+        <Text style={styles.fallbackText}>No active session</Text>
+        <Pressable testID="go-home" onPress={() => router.replace("/(tabs)")} style={styles.fallbackBtn}>
+          <Text style={styles.fallbackBtnText}>Back to home</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const activeId = session.playerIds[activeIndex];
+  const activeName = session.playerNames[activeIndex];
+
+  const advance = (carry: SceneCardType[]) => {
+    const upcoming = next.length ? next : gen([]);
+    const newScene = [...carry, ...upcoming];
+    const newNext = gen([]);
+    setScene(newScene);
+    setNext(newNext);
+    setTimeLeft(preset.roundDuration);
+    setTimeUp(false);
+    setRevealKey((k) => k + 1);
+    sound.play("draw");
+    haptic.light();
+    return newScene;
+  };
+
+  const checkWin = (newScores: Record<string, number>, newRound: number): boolean => {
+    if (preset.win.type === "score") {
+      return Object.values(newScores).some((v) => v >= preset.win.value);
+    }
+    if (preset.win.type === "rounds") {
+      return newRound > preset.win.value;
+    }
+    return false;
+  };
+
+  const winnerId = (s: Record<string, number>) =>
+    Object.entries(s).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  const endGame = () => {
+    sound.stopAmbient();
+    haptic.success();
+    const scenesCount: Record<string, number> = {};
+    session.playerIds.forEach((id) => {
+      scenesCount[id] = Math.ceil(round / 2);
+    });
+    const wId = winnerId(scores);
+    finalizeSession(wId, scores, streaks, scenesCount);
+    router.replace({
+      pathname: "/game/summary",
+      params: {
+        names: session.playerNames.join("|"),
+        ids: session.playerIds.join("|"),
+        scores: session.playerIds.map((id) => scores[id] || 0).join("|"),
+        winner: wId ?? "",
+        rounds: String(round),
+      },
+    });
+  };
+
+  const lockScene = () => {
+    sound.play("lock");
+    haptic.heavy();
+    const gained = sceneScore(scene, preset, momentum);
+    lastScore.current = gained;
+    const newScores = { ...scores, [activeId]: (scores[activeId] || 0) + gained };
+    const newStreaks = { ...streaks, [activeId]: (streaks[activeId] || 0) + 1 };
+    const newMomentum = momentum + 1;
+    const newRound = round + 1;
+    setScores(newScores);
+    setStreaks(newStreaks);
+    setMomentum(newMomentum);
+
+    if (checkWin(newScores, newRound)) {
+      setSession({ ...session, scores: newScores, streaks: newStreaks, round, status: "done" });
+      // use latest scores for summary
+      const scenesCount: Record<string, number> = {};
+      session.playerIds.forEach((id) => (scenesCount[id] = Math.ceil(newRound / 2)));
+      const wId = winnerId(newScores);
+      sound.stopAmbient();
+      haptic.success();
+      finalizeSession(wId, newScores, newStreaks, scenesCount);
+      router.replace({
+        pathname: "/game/summary",
+        params: {
+          names: session.playerNames.join("|"),
+          ids: session.playerIds.join("|"),
+          scores: session.playerIds.map((id) => newScores[id] || 0).join("|"),
+          winner: wId ?? "",
+          rounds: String(newRound - 1),
+        },
+      });
+      return;
+    }
+
+    const carry = extractCarry(scene, preset);
+    const nextActive = (activeIndex + 1) % session.playerIds.length;
+    setActiveIndex(nextActive);
+    setRound(newRound);
+    const newScene = advance(carry);
+    setTimeout(() => {
+      setSession({
+        ...session,
+        currentScene: newScene,
+        nextScene: gen([]),
+        round: newRound,
+        momentum: newMomentum,
+        activeIndex: nextActive,
+        scores: newScores,
+        streaks: newStreaks,
+        elapsed,
+      });
+    }, 0);
+  };
+
+  const breakFlow = () => {
+    haptic.warning();
+    sound.play("tap");
+    const penalty = preset.scoring.breakPenalty;
+    const newScores = { ...scores, [activeId]: Math.max(0, (scores[activeId] || 0) - penalty) };
+    const newStreaks = { ...streaks, [activeId]: 0 };
+    setScores(newScores);
+    setStreaks(newStreaks);
+    setMomentum(0);
+    const newRound = round + 1;
+    const nextActive = (activeIndex + 1) % session.playerIds.length;
+    setActiveIndex(nextActive);
+    setRound(newRound);
+    advance([]);
+    persist({ scores: newScores, streaks: newStreaks, momentum: 0, round: newRound, activeIndex: nextActive });
+  };
+
+  const exit = () => {
+    persist({});
+    sound.stopAmbient();
+    router.replace("/(tabs)");
+  };
+
+  const maxTier = scene.length ? sceneMaxTier(scene) : 1;
+  const cardHeight = useMemo(() => (scene.length > 3 ? 132 : 156), [scene.length]);
+
+  return (
+    <View style={styles.root}>
+      {/* HUD */}
+      <View style={{ paddingTop: insets.top + spacing.sm }}>
+        <GlassCard style={styles.hud}>
+          <View style={styles.hudTop}>
+            <Pressable testID="exit-game-button" hitSlop={10} onPress={() => setExitAsk(true)} style={styles.iconBtn}>
+              <Ionicons name="close" size={20} color={colors.onSurface} />
+            </Pressable>
+            <View style={styles.timerWrap}>
+              <Ionicons name="time-outline" size={16} color={timeUp ? colors.brandPrimary : colors.brandSecondary} />
+              <Text style={[styles.timer, timeUp && { color: colors.brandPrimary }]}>{fmt(timeLeft)}</Text>
+            </View>
+            <View style={styles.momentum}>
+              <Ionicons name="trending-up" size={14} color={colors.brandSecondary} />
+              <Text style={styles.momentumText}>x{momentum}</Text>
+            </View>
+          </View>
+          <View style={styles.scoreRow}>
+            {session.playerIds.map((id, i) => (
+              <View
+                key={id}
+                testID={`score-${i}`}
+                style={[styles.scoreChip, activeIndex === i && styles.scoreActive]}
+              >
+                <Text style={[styles.scoreName, activeIndex === i && { color: colors.onSurface }]} numberOfLines={1}>
+                  {session.playerNames[i]}
+                </Text>
+                <Text style={[styles.scoreValue, activeIndex === i && { color: colors.brandSecondary }]}>
+                  {scores[id] || 0}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </GlassCard>
+      </View>
+
+      {/* scene meta */}
+      <View style={styles.meta}>
+        <Text style={styles.roundText}>
+          ROUND {round} · {activeName} LEADS
+        </Text>
+        <Text style={styles.sceneIntensity}>
+          Scene intensity · <Text style={{ color: DECK_THEME.Action.accent }}>{TIER_LABEL[maxTier]}</Text>
+        </Text>
+      </View>
+
+      {/* cards */}
+      <ScrollView
+        contentContainerStyle={styles.cards}
+        showsVerticalScrollIndicator={false}
+      >
+        {scene.length === 0 ? (
+          <View style={styles.noCards}>
+            <Ionicons name="albums-outline" size={40} color={colors.muted} />
+            <Text style={styles.noCardsText}>This preset's decks have no cards. Add cards to play.</Text>
+            <Pressable testID="open-decks" onPress={() => router.replace("/(tabs)/decks")} style={styles.fallbackBtn}>
+              <Text style={styles.fallbackBtnText}>Manage decks</Text>
+            </Pressable>
+          </View>
+        ) : (
+          scene.map((c, i) => (
+            <View key={`${c.id}-${i}-${revealKey}`} style={{ marginTop: i === 0 ? 0 : -28, zIndex: i }}>
+              <SceneCard
+                card={c}
+                index={i}
+                height={cardHeight}
+                revealKey={`${revealKey}-${i}`}
+                onReveal={i === 0 ? () => sound.play("flip") : undefined}
+              />
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* controls */}
+      <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={styles.secondaryRow}>
+          <Pressable testID="break-flow-button" onPress={breakFlow} style={styles.breakBtn}>
+            <Ionicons name="hand-left-outline" size={16} color={colors.onSurfaceTertiary} />
+            <Text style={styles.breakText}>Break Flow</Text>
+          </Pressable>
+          <Pressable testID="peek-next-button" onPress={() => { haptic.light(); sound.play("tap"); setPeek(true); }} style={styles.breakBtn}>
+            <Ionicons name="eye-outline" size={16} color={colors.onSurfaceTertiary} />
+            <Text style={styles.breakText}>Peek Next</Text>
+          </Pressable>
+        </View>
+        <Animated.View style={pulseStyle}>
+          <Pressable testID="lock-scene-button" onPress={lockScene} disabled={scene.length === 0} style={[styles.lockBtn, scene.length === 0 && { opacity: 0.4 }]}>
+            <Ionicons name="flame" size={20} color={colors.onBrandPrimary} />
+            <Text style={styles.lockText}>Lock Scene & Continue</Text>
+            <Text style={styles.lockPts}>+{sceneScore(scene, preset, momentum)}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+
+      {/* peek modal */}
+      <Modal visible={peek} transparent animationType="fade" onRequestClose={() => setPeek(false)}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={() => setPeek(false)} />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Next Scene</Text>
+            <Text style={styles.sheetSub}>Pre-drawn so the flow never breaks.</Text>
+            {next.map((c) => {
+              const t = DECK_THEME[c.deckType];
+              return (
+                <View key={c.id} style={styles.peekRow}>
+                  <View style={[styles.peekIcon, { backgroundColor: `${t.accent}22` }]}>
+                    <Ionicons name={t.icon as any} size={16} color={t.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.peekDeck}>{c.deckName}</Text>
+                    <Text style={styles.peekText} numberOfLines={2}>{c.text}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
+
+      {/* exit confirm */}
+      <Modal visible={exitAsk} transparent animationType="fade" onRequestClose={() => setExitAsk(false)}>
+        <View style={[styles.modalRoot, { justifyContent: "center", padding: spacing.xl }]}>
+          <Pressable style={styles.backdrop} onPress={() => setExitAsk(false)} />
+          <View style={styles.dialog}>
+            <Text style={styles.sheetTitle}>Pause this scene?</Text>
+            <Text style={styles.sheetSub}>Your progress is saved. Resume any time from the home screen.</Text>
+            <Pressable testID="confirm-exit-button" onPress={exit} style={styles.dialogPrimary}>
+              <Text style={styles.dialogPrimaryText}>Save & Exit</Text>
+            </Pressable>
+            <Pressable onPress={() => setExitAsk(false)} style={styles.dialogGhost}>
+              <Text style={styles.dialogGhostText}>Keep Playing</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.surface },
+  hud: { marginHorizontal: spacing.lg, padding: spacing.md },
+  hudTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  iconBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  timerWrap: { flexDirection: "row", alignItems: "center", gap: 6 },
+  timer: { fontFamily: fonts.bodyBold, fontSize: fontSize.xl, color: colors.onSurface, letterSpacing: 1 },
+  momentum: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${colors.brandSecondary}1A`, paddingHorizontal: spacing.sm, height: 28, borderRadius: radius.pill },
+  momentumText: { fontFamily: fonts.bodyBold, fontSize: fontSize.sm, color: colors.brandSecondary },
+  scoreRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  scoreChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  scoreActive: { borderColor: colors.brandPrimary, backgroundColor: `${colors.brandPrimary}1A` },
+  scoreName: { fontFamily: fonts.bodyMedium, fontSize: fontSize.sm, color: colors.onSurfaceTertiary, flex: 1, marginRight: spacing.sm },
+  scoreValue: { fontFamily: fonts.displayBold, fontSize: fontSize.xl, color: colors.onSurfaceTertiary },
+  meta: { paddingHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.sm },
+  roundText: { fontFamily: fonts.bodySemi, fontSize: fontSize.xs, letterSpacing: 2, color: colors.brandSecondary },
+  sceneIntensity: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.onSurfaceTertiary, marginTop: 2 },
+  cards: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg },
+  noCards: { alignItems: "center", paddingVertical: spacing.xxxl, gap: spacing.md },
+  noCardsText: { fontFamily: fonts.body, fontSize: fontSize.base, color: colors.onSurfaceTertiary, textAlign: "center", paddingHorizontal: spacing.xl },
+  controls: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surfaceSecondary, gap: spacing.md },
+  secondaryRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
+  breakBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  breakText: { fontFamily: fonts.bodyMedium, fontSize: fontSize.sm, color: colors.onSurfaceTertiary },
+  lockBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, height: 60, borderRadius: radius.md, backgroundColor: colors.brandPrimary, shadowColor: colors.brandPrimary, shadowOpacity: 0.55, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  lockText: { fontFamily: fonts.bodySemi, fontSize: fontSize.lg, color: colors.onBrandPrimary },
+  lockPts: { fontFamily: fonts.bodyBold, fontSize: fontSize.base, color: colors.onBrandPrimary, opacity: 0.85 },
+  fallback: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", gap: spacing.lg },
+  fallbackText: { fontFamily: fonts.displaySemi, fontSize: fontSize["2xl"], color: colors.onSurface },
+  fallbackBtn: { paddingHorizontal: spacing.xl, height: 48, borderRadius: radius.md, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
+  fallbackBtnText: { fontFamily: fonts.bodySemi, fontSize: fontSize.base, color: colors.onBrandPrimary },
+  modalRoot: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.7)" },
+  sheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.xl },
+  handle: { alignSelf: "center", width: 44, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.lg },
+  sheetTitle: { fontFamily: fonts.displaySemi, fontSize: fontSize["2xl"], color: colors.onSurface },
+  sheetSub: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.onSurfaceTertiary, marginTop: 2, marginBottom: spacing.lg },
+  peekRow: { flexDirection: "row", gap: spacing.md, alignItems: "center", marginBottom: spacing.md },
+  peekIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  peekDeck: { fontFamily: fonts.bodySemi, fontSize: fontSize.xs, letterSpacing: 1, color: colors.brandSecondary, textTransform: "uppercase" },
+  peekText: { fontFamily: fonts.body, fontSize: fontSize.base, color: colors.onSurface, marginTop: 1 },
+  dialog: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.xl },
+  dialogPrimary: { height: 52, borderRadius: radius.md, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
+  dialogPrimaryText: { fontFamily: fonts.bodySemi, fontSize: fontSize.lg, color: colors.onBrandPrimary },
+  dialogGhost: { height: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
+  dialogGhostText: { fontFamily: fonts.bodyMedium, fontSize: fontSize.base, color: colors.onSurfaceTertiary },
+});

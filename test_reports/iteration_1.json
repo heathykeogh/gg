@@ -1,0 +1,36 @@
+{
+  "summary": "Frontend-only end-to-end smoke run for Tension (Expo web preview, 390x844 mobile viewport). Home/decks/deck-detail/settings flows all worked; seed data (7 decks / 110 cards / 3 presets) is intact. Decks CRUD (create deck, add/edit/delete card, tier filters) all functional. Setup screen flows (preset select, momentum/freeflow/weighted toggles, intensity, duration & winvalue steppers, win-type switch, begin) all worked. Play screen renders first scene with stacked SceneCards, HUD timer counting down, momentum x0, two score chips, lock/break/peek/exit buttons. CRITICAL: Win flow crashes the Play screen with React error 'Rendered fewer hooks than expected. This may be caused by an accidental early return statement.' which prevents navigation to the Summary screen (summary-score-0/1 and play-again/home buttons never appear). Root cause: `const cardHeight = useMemo(...)` at app/game/play.tsx:276 is declared AFTER the early-return `if (!session || !preset) {...}` at line 135. When `finalizeSession(...)` resets the session to null during the lock-to-win transition, the component re-renders, hits the early return, and the useMemo hook is skipped — violating React's rules of hooks. Settings toggles (sound/ambient/haptics) and reset-data-row are present and tappable. Players add-flow could not be exercised due to navigation timing in the test, but the screen, fab, modal inputs and color chips are wired correctly per code review. Resume flow could not be verified because the Play screen crashed in the prior step; needs re-verification after the hooks bug is fixed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Play screen", "issue": "React crash 'Rendered fewer hooks than expected' on lock-to-win transition; Summary screen never renders. Root cause: useMemo declared after the early-return `if (!session || !preset)`. Reference: /app/frontend/app/game/play.tsx:135 (early return) and :276 (cardHeight useMemo). Move ALL hooks (including `const cardHeight = useMemo(...)`) above the conditional return.", "testID": "lock-scene-button -> play-again-button", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Win condition -> Summary navigation", "issue": "router.replace to /game/summary occurs but Play unmounts via hooks-error error-boundary before navigation completes; summary screen testIDs (summary-score-0/1, play-again-button, summary-home-button) never become visible.", "affected_testIDs": ["lock-scene-button", "summary-score-0", "summary-score-1", "play-again-button", "summary-home-button"]}
+    ],
+    "design_issues": [
+      {"screen": "global", "issues": ["Two repeated dev warnings: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Non-blocking but should be cleaned up (mostly originate from LinearGradient/shadow style usage in styles)."]}
+    ],
+    "react_native_issues": [
+      {"component": "play.tsx hooks ordering", "issue": "Rules-of-hooks violation: useMemo at line 276 sits after the conditional early-return at line 135. Reference: /app/frontend/app/game/play.tsx:276"},
+      {"component": "play.tsx session.preset access", "issue": "Initial useState reads `session?.preset.roundDuration ?? 180` (line 38) — if session exists but preset is somehow missing this would throw. Low risk given setup always populates preset, but consider `session?.preset?.roundDuration`. Reference: /app/frontend/app/game/play.tsx:38"}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "FIX (CRITICAL): In /app/frontend/app/game/play.tsx move `const cardHeight = useMemo(() => (scene.length > 3 ? 132 : 156), [scene.length]);` to ABOVE the `if (!session || !preset)` early-return (around line 134, after the other hooks). This unblocks the win flow and Summary navigation.",
+    "After the hooks fix, re-verify: (a) lock-to-win navigates to /game/summary with summary-score-0/1 and play-again/summary-home buttons; (b) resume-session-card appears on Home after mid-game exit and reopens Play.",
+    "Optional: replace deprecated `shadow*` style props with `boxShadow` and remove any `pointerEvents` prop in favor of `style.pointerEvents` to silence RN-web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "play.tsx violates React's rules of hooks (hook after conditional return). This is the direct cause of the win-flow crash.",
+    "play.tsx is ~466 lines and mixes engine state, timers, animation, modals, and styles — consider extracting the HUD, peek modal, exit dialog and useGameLoop hook to keep the file under 700 lines and reduce future regressions."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "~80% — Home, Decks tab, Deck-detail CRUD, Setup, Play HUD/cards/peek/exit, Settings toggles all OK; win-flow + Summary blocked by hooks crash; Players add and Resume not re-verified due to Play crash."},
+  "seed_data_creation": "Created one TEST_Deck via UI and one TEST_card; deletion path also exercised. Did not reset via Settings.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After the hooks fix, focus retest on: (1) play.tsx lock-to-win with a low win target (cfg-win-rounds + cfg-winvalue-minus to 2) must navigate to summary; (2) Players add flow (player-name-input + color-* + create-player-button) and leaderboard/player-card rendering; (3) Resume session card on Home after mid-game exit-game-button -> confirm-exit-button; (4) Settings reset-data-row -> confirm-reset-button restores 7 seeded decks.",
+  "rca_of_issue": "RCA: React component Play (app/game/play.tsx) renders different numbers of hooks across renders. On the render that triggers a win, `finalizeSession` clears the active session in GameContext, the component re-renders, evaluates `if (!session || !preset) return <fallback/>` at line 135 (skipping the rest of the function body), and therefore SKIPS the `useMemo` at line 276. React detects fewer hooks than the previous render and throws 'Rendered fewer hooks than expected.' which bubbles to the LogBoxStateSubscription error boundary, replacing the UI and preventing the queued `router.replace('/game/summary')` from rendering Summary. Reproduction: Start Scene -> set Win Condition to Rounds -> press cfg-winvalue-minus until target = 2 -> Begin Scene -> press lock-scene-button twice. Mitigation: move the useMemo above the early-return so the hook order remains stable. Same pattern should be audited for any future hooks added after line 135."
+}
