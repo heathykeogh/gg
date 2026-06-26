@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 2 — Frontend-only mobile (390x844) regression + new mechanics for the intensity/dominance update. ALL critical new flows verified PASSING. Seed bumped successfully: 8 decks / 118 cards / 4 presets including the new 'Extreme Control' deck (8 cards) and 'Dominance' preset (ExtremeControl + Control + Time, intensityMax 3, mentalPressure + powerReversals enabled). On a Dominance scene the play screen correctly rendered: Extreme Control card 'Stillness Test' with partner-instruction line ('Do not move, do not speak'), intensifier line prefixed with '▲', tone line ('QUIET · UNRELENTING'), 'HOLD 45s' badge; RESTRICTED banner with 'movement · pace'; one pressure-chip 'Do not close your eyes'; lock button DISABLED with 'Hold — 41s' countdown and projected '+60' points. Slow Burn first-scene projected '+15' — confirming the intensity/restricted/pressure scoring bonus on Dominance (+60 ≈ 4x). Slow Burn lock button correctly became enabled after its short commitment (~12s, showed 'Lock Scene & Continue'), locking advanced rounds and triggered Win→Summary (Scene Complete · Player One Wins · 15 · 0 · Play Again / Back to Home) — the iteration-1 hooks crash is FIXED. Resume session card appears on Home after exit-game-button → confirm-exit-button. Rich card editor (deck-detail) shows text + tier + tags + partner + intensifier inputs both on existing cards (seeded values pre-fill) and add-card-fab; editing partner/intensifier and saving persists across reopen. New RULES toggles cfg-mentalpressure and cfg-powerreversals are present on Setup and toggle correctly. Minor: only 1 pressure chip rendered (problem statement says 'at least one' — OK). Two repeated non-blocking RN-web warnings persist ('shadow*' style props deprecated; 'props.pointerEvents' deprecated).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["RN-web deprecation warnings still logged: 'shadow*' style props should be replaced with 'boxShadow'; 'props.pointerEvents' should be replaced with 'style.pointerEvents'. Non-blocking but noisy in console."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json", "/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "(Optional / polish) Replace deprecated `shadow*` style props with `boxShadow` and migrate any remaining `props.pointerEvents` to `style.pointerEvents` to silence RN-web deprecation warnings. Likely candidates: GradientButton/GlassCard/lockBtn shadow* in /app/frontend/app/game/play.tsx and similar style sheets.",
+    "(Optional) play.tsx is ~608 lines and mixes timers, animations, modals and styles. Consider extracting HUD, peek modal, exit dialog and a useGameLoop hook to keep the file lean and reduce future regressions."
+  ],
+  "critical_code_review_comments": [
+    "Iteration-1 rules-of-hooks bug confirmed FIXED — useMemo references no longer follow the early-return; verified by exercising the win path (lock → /game/summary renders without crash).",
+    "play.tsx file size is still large (~608 lines). Manageable for now but watch for regressions as new mechanics get added."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% of requested scenarios verified — core loop regression (Slow Burn lock/break/peek/exit/resume/win→summary), Extreme Control deck listing & contents, rich card editor partner/intensifier persistence, Dominance preset + restricted-banner + pressure-chip + commitment-hold lock disable + scoring bonus, new cfg-mentalpressure / cfg-powerreversals toggles."},
+  "seed_data_creation": "Edited the seeded 'Total Control Position' card's partnerInstruction → 'TEST_partner_xyz' and intensifier → 'TEST_intensifier_abc' to verify persistence (live in AsyncStorage on the test browser). Main agent may wish to reset-data via Settings to restore the original seed text if needed for future tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All review_request bullets validated on Expo web preview at 390x844. Evidence captured: Dominance play screen showed RESTRICTED banner, pressure-chip 'Do not close your eyes', Extreme Control 'Stillness Test' card with partner/intensifier/tone/HOLD 45s, lock disabled with 'Hold — 41s' and projected +60 pts. Slow Burn first scene projected +15 pts (confirms ~4x scoring bonus on Dominance). Win→Summary fully works (rounds=1 path) — iteration-1 hooks crash resolved. Card editor partner/intensifier inputs both present on existing card AND add-card-fab; persistence verified by reopen. If retesting, note that I left 'Total Control Position' card mutated with TEST_ values — Settings → reset-data-row will restore. Tap 'Skip Welcome' isn't needed here; app loads straight to home. Use page.locator(...).first when targeting start-scene-button since the resume-session card play icon shares the same testID at times.",
+  "rca_of_issue": "N/A — no new critical bugs found this iteration. Prior hooks-order crash fixed by main agent; verified by exercising win → /game/summary which now renders summary screen (Scene Complete · Player One Wins · scores · Play Again / Back to Home) without React error."
+}

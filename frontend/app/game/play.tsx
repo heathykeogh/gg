@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  FadeIn,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -13,7 +15,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlassCard from "@/src/components/GlassCard";
 import SceneCard from "@/src/components/SceneCard";
 import { sound } from "@/src/audio/sound";
-import { drawScene, extractCarry, sceneMaxTier, sceneScore } from "@/src/game/engine";
+import {
+  drawScene,
+  extractCarry,
+  sceneMaxTier,
+  sceneScore,
+  rollModifiers,
+  computeRestricted,
+  powerFlipRoll,
+  sceneCommitment,
+} from "@/src/game/engine";
 import { useGame } from "@/src/store/GameContext";
 import { SceneCard as SceneCardType, Session } from "@/src/types";
 import { colors, DECK_THEME, fonts, fontSize, radius, spacing, TIER_LABEL } from "@/src/theme/theme";
@@ -40,6 +51,8 @@ export default function Play() {
   const [revealKey, setRevealKey] = useState(0);
   const [peek, setPeek] = useState(false);
   const [exitAsk, setExitAsk] = useState(false);
+  const [modifiers, setModifiers] = useState<string[]>(session?.sceneMods ?? []);
+  const [flipShown, setFlipShown] = useState(false);
   const lastScore = useRef(0);
 
   const preset = session?.preset;
@@ -59,6 +72,7 @@ export default function Play() {
       const upcoming = gen([]);
       setScene(first);
       setNext(upcoming);
+      setModifiers(rollModifiers(preset!, 0));
       setTimeLeft(preset!.roundDuration);
       setRevealKey((k) => k + 1);
       sound.play("draw");
@@ -126,13 +140,20 @@ export default function Play() {
         scores,
         streaks,
         elapsed,
+        sceneMods: modifiers,
         ...patch,
       });
     },
-    [session, scene, next, round, momentum, activeIndex, scores, streaks, elapsed, setSession],
+    [session, scene, next, round, momentum, activeIndex, scores, streaks, elapsed, modifiers, setSession],
   );
 
-  const cardHeight = useMemo(() => (scene.length > 3 ? 132 : 156), [scene.length]);
+  const cardHeightFor = (c: SceneCardType) => {
+    let h = 150;
+    if (c.partnerInstruction) h += 50;
+    if (c.intensifier) h += 26;
+    if (c.chain?.length) h += c.chain.length * 20 + 14;
+    return h;
+  };
 
   if (!session || !preset) {
     return (
@@ -148,18 +169,26 @@ export default function Play() {
   const activeId = session.playerIds[activeIndex];
   const activeName = session.playerNames[activeIndex];
 
-  const advance = (carry: SceneCardType[]) => {
+  const triggerFlip = () => {
+    setFlipShown(true);
+    haptic.heavy();
+    setTimeout(() => setFlipShown(false), 1600);
+  };
+
+  const advance = (carry: SceneCardType[], mom: number) => {
     const upcoming = next.length ? next : gen([]);
     const newScene = [...carry, ...upcoming];
     const newNext = gen([]);
+    const mods = rollModifiers(preset, mom);
     setScene(newScene);
     setNext(newNext);
+    setModifiers(mods);
     setTimeLeft(preset.roundDuration);
     setTimeUp(false);
     setRevealKey((k) => k + 1);
     sound.play("draw");
     haptic.light();
-    return newScene;
+    return { scene: newScene, next: newNext, mods };
   };
 
   const checkWin = (newScores: Record<string, number>, newRound: number): boolean => {
@@ -199,7 +228,7 @@ export default function Play() {
   const lockScene = () => {
     sound.play("lock");
     haptic.heavy();
-    const gained = sceneScore(scene, preset, momentum);
+    const gained = sceneScore(scene, preset, momentum, modifiers, computeRestricted(scene, modifiers).active);
     lastScore.current = gained;
     const newScores = { ...scores, [activeId]: (scores[activeId] || 0) + gained };
     const newStreaks = { ...streaks, [activeId]: (streaks[activeId] || 0) + 1 };
@@ -232,15 +261,18 @@ export default function Play() {
     }
 
     const carry = extractCarry(scene, preset);
-    const nextActive = (activeIndex + 1) % session.playerIds.length;
+    const flip = powerFlipRoll(preset, newMomentum);
+    const nextActive = flip ? activeIndex : (activeIndex + 1) % session.playerIds.length;
+    if (flip) triggerFlip();
     setActiveIndex(nextActive);
     setRound(newRound);
-    const newScene = advance(carry);
+    const res = advance(carry, newMomentum);
     setTimeout(() => {
       setSession({
         ...session,
-        currentScene: newScene,
-        nextScene: gen([]),
+        currentScene: res.scene,
+        nextScene: res.next,
+        sceneMods: res.mods,
         round: newRound,
         momentum: newMomentum,
         activeIndex: nextActive,
@@ -264,8 +296,17 @@ export default function Play() {
     const nextActive = (activeIndex + 1) % session.playerIds.length;
     setActiveIndex(nextActive);
     setRound(newRound);
-    advance([]);
-    persist({ scores: newScores, streaks: newStreaks, momentum: 0, round: newRound, activeIndex: nextActive });
+    const res = advance([], 0);
+    persist({
+      scores: newScores,
+      streaks: newStreaks,
+      momentum: 0,
+      round: newRound,
+      activeIndex: nextActive,
+      sceneMods: res.mods,
+      currentScene: res.scene,
+      nextScene: res.next,
+    });
   };
 
   const exit = () => {
@@ -275,6 +316,13 @@ export default function Play() {
   };
 
   const maxTier = scene.length ? sceneMaxTier(scene) : 1;
+  const restricted = scene.length
+    ? computeRestricted(scene, modifiers)
+    : { active: false, movement: false, speech: false, pace: false };
+  const commitment = scene.length ? sceneCommitment(scene, preset) : 0;
+  const held = preset.roundDuration - timeLeft;
+  const canLock = held >= commitment;
+  const projected = scene.length ? sceneScore(scene, preset, momentum, modifiers, restricted.active) : 0;
 
   return (
     <View style={styles.root}>
@@ -323,6 +371,40 @@ export default function Play() {
         </Text>
       </View>
 
+      {scene.length > 0 && (restricted.active || modifiers.length > 0) && (
+        <View style={styles.banners}>
+          {restricted.active && (
+            <View style={styles.restrictedPill} testID="restricted-banner">
+              <Ionicons name="lock-closed" size={12} color={colors.brandPrimary} />
+              <Text style={styles.restrictedText}>RESTRICTED</Text>
+              <Text style={styles.restrictedSub}>
+                {[
+                  restricted.movement && "movement",
+                  restricted.speech && "speech",
+                  restricted.pace && "pace",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            </View>
+          )}
+          {modifiers.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.modRow}
+            >
+              {modifiers.map((m) => (
+                <View key={m} style={styles.modChip} testID="pressure-chip">
+                  <Ionicons name="pulse" size={11} color={colors.brandSecondary} />
+                  <Text style={styles.modText}>{m}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
+
       {/* cards */}
       <ScrollView
         contentContainerStyle={styles.cards}
@@ -338,11 +420,11 @@ export default function Play() {
           </View>
         ) : (
           scene.map((c, i) => (
-            <View key={`${c.id}-${i}-${revealKey}`} style={{ marginTop: i === 0 ? 0 : -28, zIndex: i }}>
+            <View key={`${c.id}-${i}-${revealKey}`} style={{ marginTop: i === 0 ? 0 : spacing.md }}>
               <SceneCard
                 card={c}
                 index={i}
-                height={cardHeight}
+                height={cardHeightFor(c)}
                 revealKey={`${revealKey}-${i}`}
                 onReveal={i === 0 ? () => sound.play("flip") : undefined}
               />
@@ -364,10 +446,17 @@ export default function Play() {
           </Pressable>
         </View>
         <Animated.View style={pulseStyle}>
-          <Pressable testID="lock-scene-button" onPress={lockScene} disabled={scene.length === 0} style={[styles.lockBtn, scene.length === 0 && { opacity: 0.4 }]}>
-            <Ionicons name="flame" size={20} color={colors.onBrandPrimary} />
-            <Text style={styles.lockText}>Lock Scene & Continue</Text>
-            <Text style={styles.lockPts}>+{sceneScore(scene, preset, momentum)}</Text>
+          <Pressable
+            testID="lock-scene-button"
+            onPress={lockScene}
+            disabled={scene.length === 0 || !canLock}
+            style={[styles.lockBtn, (scene.length === 0 || !canLock) && { opacity: 0.5 }]}
+          >
+            <Ionicons name={canLock ? "flame" : "lock-closed"} size={20} color={colors.onBrandPrimary} />
+            <Text style={styles.lockText}>
+              {canLock ? "Lock Scene & Continue" : `Hold — ${Math.max(0, commitment - held)}s`}
+            </Text>
+            <Text style={styles.lockPts}>+{projected}</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -414,6 +503,19 @@ export default function Play() {
           </View>
         </View>
       </Modal>
+
+      {flipShown && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(300)}
+          style={styles.flipOverlay}
+          pointerEvents="none"
+        >
+          <Ionicons name="swap-horizontal" size={48} color={colors.brandSecondary} />
+          <Text style={styles.flipTitle}>POWER FLIP</Text>
+          <Text style={styles.flipSub}>The balance of control shifts</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -464,4 +566,42 @@ const styles = StyleSheet.create({
   dialogPrimaryText: { fontFamily: fonts.bodySemi, fontSize: fontSize.lg, color: colors.onBrandPrimary },
   dialogGhost: { height: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
   dialogGhostText: { fontFamily: fonts.bodyMedium, fontSize: fontSize.base, color: colors.onSurfaceTertiary },
+  banners: { paddingHorizontal: spacing.xl, gap: spacing.sm, marginBottom: spacing.sm },
+  restrictedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    alignSelf: "flex-start",
+    backgroundColor: `${colors.brandPrimary}1F`,
+    borderWidth: 1,
+    borderColor: `${colors.brandPrimary}66`,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+  },
+  restrictedText: { fontFamily: fonts.bodyBold, fontSize: fontSize.xs, letterSpacing: 1.5, color: colors.brandPrimary },
+  restrictedSub: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.onSurfaceTertiary },
+  modRow: { gap: spacing.sm, paddingRight: spacing.xl },
+  modChip: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: `${colors.brandSecondary}44`,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    height: 30,
+  },
+  modText: { fontFamily: fonts.bodyMedium, fontSize: fontSize.xs, color: colors.onSurfaceSecondary },
+  flipOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(12,12,14,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  flipTitle: { fontFamily: fonts.displayBold, fontSize: fontSize["4xl"], color: colors.onSurface, letterSpacing: 2 },
+  flipSub: { fontFamily: fonts.body, fontSize: fontSize.base, color: colors.brandSecondary },
 });

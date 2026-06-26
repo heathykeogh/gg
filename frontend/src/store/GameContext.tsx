@@ -22,8 +22,8 @@ import { setHapticsEnabled } from "@/src/utils/haptics";
 import { sound } from "@/src/audio/sound";
 
 const KEYS = {
-  decks: "tension.decks.v1",
-  presets: "tension.presets.v1",
+  decks: "tension.decks.v2",
+  presets: "tension.presets.v2",
   players: "tension.players.v1",
   settings: "tension.settings.v1",
   session: "tension.session.v1",

@@ -122,6 +122,15 @@ export const DECK_THEME: Record<DeckType, DeckTheme> = {
     glow: "#C46B33",
     icon: "trending-up",
   },
+  ExtremeControl: {
+    bg: "#150407",
+    bgEnd: "#3D0A12",
+    accent: "#D43B4E",
+    text: "#F8E7E9",
+    sub: "#D9979F",
+    glow: "#D43B4E",
+    icon: "lock-closed",
+  },
   Wild: {
     bg: "#EAE6E1",
     bgEnd: "#CFC7BC",
@@ -153,3 +162,13 @@ export const DECK_THEME: Record<DeckType, DeckTheme> = {
 
 export const TIER_LABEL = ["", "Tease", "Build", "Intense"] as const;
 export const TIER_COLOR = ["", "#3E8463", "#C5A570", "#A62235"] as const;
+
+export const MENTAL_PRESSURE = [
+  "No talking allowed",
+  "Maintain eye contact the entire time",
+  "Count out loud",
+  "Ask permission before every action",
+  "You cannot react physically",
+  "Move only when instructed",
+  "Do not close your eyes",
+] as const;

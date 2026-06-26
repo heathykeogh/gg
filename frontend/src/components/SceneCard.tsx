@@ -98,12 +98,49 @@ export default function SceneCard({ card, index, height = 168, onReveal, revealK
             )}
           </View>
 
-          <Text style={[styles.cardText, { color: theme.text }]} numberOfLines={4}>
-            {card.text}
-          </Text>
+          <View style={styles.middle}>
+            <Text
+              style={[styles.cardText, { color: theme.text }]}
+              numberOfLines={card.partnerInstruction || card.chain ? 2 : 3}
+            >
+              {card.text}
+            </Text>
+            {card.chain && card.chain.length > 0 ? (
+              <View style={styles.chainBox}>
+                {card.chain.map((step, idx) => (
+                  <Text key={idx} style={[styles.chainStep, { color: theme.sub }]} numberOfLines={1}>
+                    {idx + 1}. {step}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            {card.partnerInstruction ? (
+              <View style={[styles.partnerBox, { borderColor: `${theme.accent}44` }]}>
+                <Ionicons name="arrow-forward" size={11} color={theme.accent} />
+                <Text style={[styles.partnerText, { color: theme.sub }]} numberOfLines={2}>
+                  {card.partnerInstruction}
+                </Text>
+              </View>
+            ) : null}
+            {card.intensifier ? (
+              <Text style={[styles.intensifier, { color: theme.accent }]} numberOfLines={1}>
+                ▲ {card.intensifier}
+              </Text>
+            ) : null}
+          </View>
 
           <View style={styles.bottomRow}>
-            <Text style={[styles.tierText, { color: theme.sub }]}>{TIER_LABEL[card.tier]}</Text>
+            <View style={styles.bottomLeft}>
+              <Text style={[styles.tierText, { color: theme.sub }]} numberOfLines={1}>
+                {card.tone ? card.tone : TIER_LABEL[card.tier]}
+              </Text>
+              {card.holdSeconds ? (
+                <View style={[styles.holdPill, { borderColor: `${theme.accent}66` }]}>
+                  <Ionicons name="lock-closed" size={9} color={theme.accent} />
+                  <Text style={[styles.holdText, { color: theme.accent }]}>HOLD {card.holdSeconds}s</Text>
+                </View>
+              ) : null}
+            </View>
             <View style={styles.tags}>
               {card.tags.slice(0, 2).map((t) => (
                 <Text key={t} style={[styles.tag, { color: theme.sub, borderColor: `${theme.sub}44` }]}>
@@ -170,8 +207,32 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displaySemi,
     fontSize: fontSize["2xl"],
     lineHeight: 28,
-    marginVertical: spacing.sm,
+    marginBottom: spacing.xs,
   },
+  middle: { flex: 1, justifyContent: "center", marginVertical: spacing.sm },
+  chainBox: { marginTop: spacing.xs, gap: 2 },
+  chainStep: { fontFamily: fonts.bodyMedium, fontSize: fontSize.sm },
+  partnerBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.sm,
+    borderLeftWidth: 2,
+    paddingLeft: spacing.sm,
+  },
+  partnerText: { flex: 1, fontFamily: fonts.body, fontSize: fontSize.sm, lineHeight: 17 },
+  intensifier: { fontFamily: fonts.bodySemi, fontSize: fontSize.xs, marginTop: spacing.xs, letterSpacing: 0.3 },
+  bottomLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1, flexShrink: 1 },
+  holdPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  holdText: { fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.5 },
   bottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   tierText: { fontFamily: fonts.bodySemi, fontSize: fontSize.xs, letterSpacing: 1, textTransform: "uppercase" },
   tags: { flexDirection: "row", gap: spacing.xs },

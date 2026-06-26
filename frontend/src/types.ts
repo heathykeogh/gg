@@ -6,6 +6,7 @@ export type DeckType =
   | "Momentum"
   | "Wild"
   | "Objective"
+  | "ExtremeControl"
   | "Custom";
 
 export type Tier = 1 | 2 | 3;
@@ -16,6 +17,11 @@ export interface Card {
   tags: string[];
   tier: Tier;
   image?: string;
+  partnerInstruction?: string;
+  tone?: string;
+  intensifier?: string;
+  chain?: string[];
+  holdSeconds?: number;
 }
 
 export interface Deck {
@@ -47,6 +53,8 @@ export interface Preset {
   momentumMode: boolean;
   freeFlow: boolean;
   weightedDraw: boolean;
+  mentalPressure?: boolean;
+  powerReversals?: boolean;
   intensityMax: Tier;
   scoring: ScoringConfig;
   win: WinCondition;
@@ -87,6 +95,7 @@ export interface Session {
   carryOver: SceneCard[];
   currentScene: SceneCard[];
   nextScene: SceneCard[];
+  sceneMods?: string[];
   startedAt: number;
   elapsed: number;
   status: "active" | "done";

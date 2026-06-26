@@ -31,6 +31,7 @@ const TYPES: DeckType[] = [
   "Momentum",
   "Wild",
   "Objective",
+  "ExtremeControl",
   "Custom",
 ];
 

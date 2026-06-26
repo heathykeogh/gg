@@ -183,6 +183,22 @@ export default function Setup() {
             value={cfg.weightedDraw}
             onChange={(v) => setCfg({ ...cfg, weightedDraw: v })}
           />
+          <Divider />
+          <ToggleLine
+            testID="cfg-mentalpressure"
+            label="Mental pressure"
+            sub="Stack random rules: silence, eye contact, permission"
+            value={!!cfg.mentalPressure}
+            onChange={(v) => setCfg({ ...cfg, mentalPressure: v })}
+          />
+          <Divider />
+          <ToggleLine
+            testID="cfg-powerreversals"
+            label="Power reversals"
+            sub="Control can suddenly flip mid-flow"
+            value={!!cfg.powerReversals}
+            onChange={(v) => setCfg({ ...cfg, powerReversals: v })}
+          />
         </View>
 
         <View style={[styles.group, { marginTop: spacing.md }]}>

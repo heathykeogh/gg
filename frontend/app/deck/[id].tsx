@@ -47,6 +47,8 @@ export default function DeckDetail() {
   const [text, setText] = useState("");
   const [tier, setTier] = useState<Tier>(1);
   const [tags, setTags] = useState("");
+  const [partner, setPartner] = useState("");
+  const [intensifier, setIntensifier] = useState("");
   const [menu, setMenu] = useState(false);
 
   const filtered = useMemo(() => {
@@ -69,6 +71,8 @@ export default function DeckDetail() {
     setText("");
     setTier(1);
     setTags("");
+    setPartner("");
+    setIntensifier("");
     setModal(true);
   };
   const openEdit = (c: Card) => {
@@ -76,6 +80,8 @@ export default function DeckDetail() {
     setText(c.text);
     setTier(c.tier);
     setTags(c.tags.join(", "));
+    setPartner(c.partnerInstruction ?? "");
+    setIntensifier(c.intensifier ?? "");
     setModal(true);
   };
   const save = () => {
@@ -84,10 +90,14 @@ export default function DeckDetail() {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
+    const extra = {
+      partnerInstruction: partner.trim() || undefined,
+      intensifier: intensifier.trim() || undefined,
+    };
     if (editing) {
-      updateCard(deck.id, editing.id, { text: text.trim(), tier, tags: tagArr });
+      updateCard(deck.id, editing.id, { text: text.trim(), tier, tags: tagArr, ...extra });
     } else {
-      addCard(deck.id, { text: text.trim(), tier, tags: tagArr });
+      addCard(deck.id, { text: text.trim(), tier, tags: tagArr, ...extra });
     }
     haptic.success();
     setModal(false);
@@ -247,6 +257,24 @@ export default function DeckDetail() {
                 value={tags}
                 onChangeText={setTags}
                 placeholder="slow, tease, control"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+              <Text style={styles.fieldLabel}>Partner instruction (optional)</Text>
+              <TextInput
+                testID="card-partner-input"
+                value={partner}
+                onChangeText={setPartner}
+                placeholder="You may only move when told"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+              />
+              <Text style={styles.fieldLabel}>Intensifier (optional)</Text>
+              <TextInput
+                testID="card-intensifier-input"
+                value={intensifier}
+                onChangeText={setIntensifier}
+                placeholder="Reset them every time they break position"
                 placeholderTextColor={colors.muted}
                 style={styles.input}
               />

@@ -143,6 +143,106 @@ const OBJECTIVE: Raw[] = [
   ["Escalate intensity every minute", 3, ["goal", "build"]],
 ];
 
+interface RawX {
+  text: string;
+  tier: Tier;
+  tags: string[];
+  partner?: string;
+  tone?: string;
+  intensifier?: string;
+  hold?: number;
+  chain?: string[];
+}
+
+const buildX = (type: DeckType, name: string, raw: RawX[]): Deck => ({
+  id: uid("deck"),
+  name,
+  type,
+  cards: raw.map((r) => ({
+    id: uid("card"),
+    text: r.text,
+    tier: r.tier,
+    tags: r.tags,
+    partnerInstruction: r.partner,
+    tone: r.tone,
+    intensifier: r.intensifier,
+    holdSeconds: r.hold,
+    chain: r.chain,
+  })),
+});
+
+const EXTREME: RawX[] = [
+  {
+    text: "Total Control Position",
+    tier: 3,
+    tags: ["control_extreme", "control", "restraint"],
+    partner: "You must not move unless directly instructed",
+    tone: "Strict · controlled · dominant",
+    intensifier: "Reset them every time they break position",
+    hold: 45,
+  },
+  {
+    text: "Mirror Exposure",
+    tier: 3,
+    tags: ["control_extreme", "exposure"],
+    partner: "Maintain eye contact with yourself while following instructions",
+    tone: "Intense · self-aware · vulnerable",
+    intensifier: "Narrate exactly what you're making them do",
+    hold: 40,
+  },
+  {
+    text: "Limited Movement",
+    tier: 3,
+    tags: ["control_extreme", "restraint", "restriction"],
+    partner: "You may only move when told",
+    tone: "Controlled · deliberate",
+    hold: 40,
+  },
+  {
+    text: "Rapid Commands",
+    tier: 3,
+    tags: ["control_extreme", "obedience"],
+    partner: "Follow each command instantly — hesitation restarts the chain",
+    tone: "Sharp · commanding",
+    chain: ["Look down", "Move closer", "Hold perfectly still", "Hands behind your back", "Wait for the next word"],
+  },
+  {
+    text: "Obedience Hold",
+    tier: 3,
+    tags: ["control_extreme", "obedience", "silence"],
+    partner: "Ask permission before every single action",
+    tone: "Strict · patient",
+    intensifier: "Deny the first request, make them ask again",
+    hold: 50,
+  },
+  {
+    text: "Stillness Test",
+    tier: 3,
+    tags: ["control_extreme", "restraint"],
+    partner: "Do not move, do not speak",
+    tone: "Quiet · unrelenting",
+    intensifier: "Reset the timer on any movement",
+    hold: 45,
+  },
+  {
+    text: "Sudden Flip",
+    tier: 3,
+    tags: ["control_extreme", "reversal"],
+    partner: "The moment it lands, control changes hands",
+    tone: "Unpredictable · charged",
+    intensifier: "The new leader gives three commands immediately",
+  },
+  {
+    text: "Kneel & Wait",
+    tier: 3,
+    tags: ["control_extreme", "obedience", "control"],
+    partner: "Take the position and hold it until released",
+    tone: "Commanding · slow",
+    intensifier: "Make them wait longer than is comfortable",
+    hold: 35,
+  },
+];
+
 export const buildSeedDecks = (): Deck[] => [
   build("Action", "Action", ACTION),
   build("Enhancer", "Enhancer", ENHANCER),
@@ -151,6 +251,7 @@ export const buildSeedDecks = (): Deck[] => [
   build("Momentum", "Momentum", MOMENTUM),
   build("Wild", "Wild Card", WILD),
   build("Objective", "Objective", OBJECTIVE),
+  buildX("ExtremeControl", "Extreme Control", EXTREME),
 ];
 
 export const buildSeedPresets = (): Preset[] => [
@@ -175,6 +276,8 @@ export const buildSeedPresets = (): Preset[] => [
     freeFlow: false,
     weightedDraw: true,
     intensityMax: 3,
+    mentalPressure: true,
+    powerReversals: true,
     scoring: { pointsPerScene: 15, tierMultipliers: [1, 1.6, 2.4], momentumBonus: 5, breakPenalty: 8 },
     win: { type: "score", value: 150 },
   },
@@ -189,6 +292,22 @@ export const buildSeedPresets = (): Preset[] => [
     intensityMax: 3,
     scoring: { pointsPerScene: 12, tierMultipliers: [1, 1.5, 2], momentumBonus: 6, breakPenalty: 0 },
     win: { type: "rounds", value: 12 },
+    mentalPressure: true,
+    powerReversals: true,
+  },
+  {
+    id: uid("preset"),
+    name: "Dominance",
+    deckTypes: ["ExtremeControl", "Control", "Time"],
+    roundDuration: 300,
+    momentumMode: true,
+    freeFlow: false,
+    weightedDraw: true,
+    intensityMax: 3,
+    mentalPressure: true,
+    powerReversals: true,
+    scoring: { pointsPerScene: 18, tierMultipliers: [1, 1.7, 2.6], momentumBonus: 7, breakPenalty: 12 },
+    win: { type: "score", value: 180 },
   },
 ];
 
