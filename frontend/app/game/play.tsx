@@ -53,6 +53,7 @@ export default function Play() {
   const [exitAsk, setExitAsk] = useState(false);
   const [modifiers, setModifiers] = useState<string[]>(session?.sceneMods ?? []);
   const [flipShown, setFlipShown] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const lastScore = useRef(0);
   const lockingRef = useRef(false);
 
@@ -341,9 +342,22 @@ export default function Play() {
               <Ionicons name="time-outline" size={16} color={timeUp ? colors.brandPrimary : colors.brandSecondary} />
               <Text style={[styles.timer, timeUp && { color: colors.brandPrimary }]}>{fmt(timeLeft)}</Text>
             </View>
-            <View style={styles.momentum}>
-              <Ionicons name="trending-up" size={14} color={colors.brandSecondary} />
-              <Text style={styles.momentumText}>x{momentum}</Text>
+            <View style={styles.hudRight}>
+              <Pressable
+                testID="help-button"
+                hitSlop={10}
+                onPress={() => {
+                  haptic.light();
+                  setHelpOpen(true);
+                }}
+                style={styles.infoBtn}
+              >
+                <Ionicons name="help" size={16} color={colors.onSurface} />
+              </Pressable>
+              <View style={styles.momentum}>
+                <Ionicons name="trending-up" size={14} color={colors.brandSecondary} />
+                <Text style={styles.momentumText}>x{momentum}</Text>
+              </View>
             </View>
           </View>
           <View style={styles.scoreRow}>
@@ -373,6 +387,16 @@ export default function Play() {
         <Text style={styles.sceneIntensity}>
           Scene intensity · <Text style={{ color: DECK_THEME.Action.accent }}>{TIER_LABEL[maxTier]}</Text>
         </Text>
+        {scene.length > 0 && (
+          <View style={styles.coach}>
+            <Ionicons name={canLock ? "arrow-forward-circle" : "time"} size={14} color={colors.brandSecondary} />
+            <Text style={styles.coachText}>
+              {!canLock
+                ? `Stay in the scene — Lock unlocks in ${Math.max(0, commitment - held)}s`
+                : "Read the top card & follow it together. Tap Lock to score and flow on."}
+            </Text>
+          </View>
+        )}
       </View>
 
       {scene.length > 0 && (restricted.active || modifiers.length > 0) && (
@@ -508,6 +532,23 @@ export default function Play() {
         </View>
       </Modal>
 
+      <Modal visible={helpOpen} transparent animationType="fade" onRequestClose={() => setHelpOpen(false)}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={() => setHelpOpen(false)} />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>How it works</Text>
+            <Text style={styles.sheetSub}>Everything you need mid-scene.</Text>
+            <LegendRow icon="trending-up" title="Momentum ×" body="Lock scenes without breaking flow to raise it — higher momentum means bigger bonus points." />
+            <LegendRow icon="lock-closed" title="Hold" body="Intense scenes must be held for a few seconds before Lock unlocks. No rushing." />
+            <LegendRow icon="shield-half" title="Restricted" body="The scene limits movement, speech or pace. Honour it until you lock." />
+            <LegendRow icon="pulse" title="Pressure" body="Extra rules stacked on the scene, like silence or eye contact." />
+            <LegendRow icon="hand-left" title="Break Flow" body="Deliberately reset momentum. Costs points but relieves the tension." />
+            <LegendRow icon="eye" title="Peek Next" body="Preview the pre-drawn next scene so there's never a pause." />
+          </View>
+        </View>
+      </Modal>
+
       {flipShown && (
         <Animated.View
           entering={FadeIn.duration(200)}
@@ -524,6 +565,28 @@ export default function Play() {
   );
 }
 
+function LegendRow({
+  icon,
+  title,
+  body,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+}) {
+  return (
+    <View style={styles.legendRow}>
+      <View style={styles.legendIcon}>
+        <Ionicons name={icon} size={16} color={colors.brandSecondary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.legendTitle}>{title}</Text>
+        <Text style={styles.legendBody}>{body}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hud: { marginHorizontal: spacing.lg, padding: spacing.md },
@@ -533,6 +596,14 @@ const styles = StyleSheet.create({
   timer: { fontFamily: fonts.bodyBold, fontSize: fontSize.xl, color: colors.onSurface, letterSpacing: 1 },
   momentum: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${colors.brandSecondary}1A`, paddingHorizontal: spacing.sm, height: 28, borderRadius: radius.pill },
   momentumText: { fontFamily: fonts.bodyBold, fontSize: fontSize.sm, color: colors.brandSecondary },
+  hudRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  infoBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  coach: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm },
+  coachText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: fontSize.sm, color: colors.onSurfaceSecondary },
+  legendRow: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start", marginBottom: spacing.lg },
+  legendIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: `${colors.brandSecondary}1A`, alignItems: "center", justifyContent: "center" },
+  legendTitle: { fontFamily: fonts.bodySemi, fontSize: fontSize.base, color: colors.onSurface },
+  legendBody: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.onSurfaceTertiary, marginTop: 1, lineHeight: 18 },
   scoreRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   scoreChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   scoreActive: { borderColor: colors.brandPrimary, backgroundColor: `${colors.brandPrimary}1A` },

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +15,7 @@ import { haptic } from "@/src/utils/haptics";
 export default function Settings() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useGame();
+  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
 
   const reset = async () => {
@@ -66,8 +68,27 @@ export default function Settings() {
           />
         </View>
 
-        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>DATA</Text>
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>GUIDE & DATA</Text>
         <View style={styles.group}>
+          <Pressable
+            testID="replay-tutorial-row"
+            style={styles.row}
+            onPress={() => {
+              haptic.light();
+              updateSettings({ onboarded: false });
+              router.push("/(tabs)");
+            }}
+          >
+            <View style={[styles.iconBox, { backgroundColor: `${colors.brandSecondary}22` }]}>
+              <Ionicons name="school" size={18} color={colors.brandSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>How to play</Text>
+              <Text style={styles.rowSub}>Replay the quick tutorial</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+          <Divider />
           <Pressable testID="reset-data-row" style={styles.row} onPress={() => setConfirm(true)}>
             <View style={[styles.iconBox, { backgroundColor: `${colors.error}22` }]}>
               <Ionicons name="refresh" size={18} color={colors.brandPrimary} />

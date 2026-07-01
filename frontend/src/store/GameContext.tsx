@@ -32,7 +32,7 @@ const KEYS = {
 const uid = (p: string) =>
   `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-const DEFAULT_SETTINGS: AppSettings = { sound: true, ambient: true, haptics: true };
+const DEFAULT_SETTINGS: AppSettings = { sound: true, ambient: true, haptics: true, onboarded: false };
 
 interface Ctx {
   loaded: boolean;

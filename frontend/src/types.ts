@@ -106,4 +106,5 @@ export interface AppSettings {
   sound: boolean;
   ambient: boolean;
   haptics: boolean;
+  onboarded?: boolean;
 }

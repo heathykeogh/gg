@@ -98,7 +98,7 @@ export default function Setup() {
         showsVerticalScrollIndicator={false}
       >
         {/* Preset */}
-        <Text style={styles.label}>PRESET</Text>
+        <Text style={styles.label}>STEP 1 · CHOOSE A MODE</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
           {presets.map((p) => {
             const active = p.id === presetId;
@@ -122,7 +122,7 @@ export default function Setup() {
         </ScrollView>
 
         {/* Players */}
-        <Text style={[styles.label, { marginTop: spacing.xl }]}>PLAYERS</Text>
+        <Text style={[styles.label, { marginTop: spacing.xl }]}>STEP 2 · PLAYERS</Text>
         <View style={styles.slotRow}>
           {[0, 1].map((i) => (
             <View key={i} style={styles.slot}>
@@ -163,7 +163,7 @@ export default function Setup() {
         )}
 
         {/* Config */}
-        <Text style={[styles.label, { marginTop: spacing.xl }]}>RULES</Text>
+        <Text style={[styles.label, { marginTop: spacing.xl }]}>STEP 3 · RULES</Text>
         <View style={styles.group}>
           <ToggleLine
             testID="cfg-momentum"
@@ -265,7 +265,7 @@ export default function Setup() {
           />
         </View>
 
-        <Text style={[styles.label, { marginTop: spacing.xl }]}>CARDS PER TURN</Text>
+        <Text style={[styles.label, { marginTop: spacing.xl }]}>STEP 4 · CARDS PER TURN</Text>
         <Text style={[styles.helper, { marginTop: 0, marginBottom: spacing.md }]}>
           How many cards each deck draws every turn. Set to 0 to skip a deck.
         </Text>
@@ -317,6 +317,19 @@ export default function Setup() {
             })
           )}
         </View>
+
+        {turnDecks.some((d) => (d.cardsPerTurn ?? 1) > 0) && (
+          <View style={styles.recipe}>
+            <Ionicons name="documents-outline" size={15} color={colors.brandSecondary} />
+            <Text style={styles.recipeText}>
+              Each turn draws{" "}
+              {turnDecks
+                .filter((d) => (d.cardsPerTurn ?? 1) > 0)
+                .map((d) => `${d.cardsPerTurn ?? 1}× ${d.name}`)
+                .join(" · ")}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -458,6 +471,18 @@ const styles = StyleSheet.create({
   stepBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   stepValue: { fontFamily: fonts.bodySemi, fontSize: fontSize.base, color: colors.onSurface, minWidth: 64, textAlign: "center" },
   cptIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  recipe: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: `${colors.brandSecondary}44`,
+    backgroundColor: `${colors.brandSecondary}12`,
+  },
+  recipeText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: fontSize.sm, color: colors.onSurfaceSecondary, lineHeight: 18 },
   footer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

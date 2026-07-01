@@ -7,6 +7,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import GlassCard from "@/src/components/GlassCard";
 import GradientButton from "@/src/components/GradientButton";
+import Onboarding from "@/src/components/Onboarding";
 import ScreenBackground from "@/src/components/ScreenBackground";
 import { useGame } from "@/src/store/GameContext";
 import { colors, fonts, fontSize, radius, spacing } from "@/src/theme/theme";
@@ -15,7 +16,7 @@ import { haptic } from "@/src/utils/haptics";
 export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { decks, players, session } = useGame();
+  const { decks, players, session, settings, updateSettings } = useGame();
 
   const totalCards = decks.reduce((a, d) => a + d.cards.length, 0);
 
@@ -109,6 +110,8 @@ export default function Home() {
           </Animated.View>
         </View>
       </ScrollView>
+
+      {!settings.onboarded && <Onboarding onDone={() => updateSettings({ onboarded: true })} />}
     </ScreenBackground>
   );
 }
