@@ -29,6 +29,7 @@ export interface Deck {
   name: string;
   type: DeckType;
   cards: Card[];
+  cardsPerTurn?: number;
 }
 
 export interface ScoringConfig {

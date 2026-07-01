@@ -23,7 +23,7 @@ const WIN_TYPES: { type: WinType; label: string; unit: string }[] = [
 export default function Setup() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { presets, players, setSession } = useGame();
+  const { presets, players, setSession, decks, updateDeck } = useGame();
 
   const [presetId, setPresetId] = useState(presets[0]?.id ?? "");
   const base = presets.find((p) => p.id === presetId) ?? presets[0];
@@ -84,6 +84,11 @@ export default function Setup() {
   };
 
   const duration = useMemo(() => Math.round(cfg.roundDuration / 60), [cfg.roundDuration]);
+
+  const turnDecks = useMemo(
+    () => decks.filter((d) => cfg.deckTypes.includes(d.type)),
+    [decks, cfg.deckTypes],
+  );
 
   return (
     <ScreenBackground>
@@ -259,6 +264,59 @@ export default function Setup() {
             onPlus={() => setCfg({ ...cfg, win: { ...cfg.win, value: cfg.win.value + (cfg.win.type === "score" ? 10 : 1) } })}
           />
         </View>
+
+        <Text style={[styles.label, { marginTop: spacing.xl }]}>CARDS PER TURN</Text>
+        <Text style={[styles.helper, { marginTop: 0, marginBottom: spacing.md }]}>
+          How many cards each deck draws every turn. Set to 0 to skip a deck.
+        </Text>
+        <View style={styles.group}>
+          {turnDecks.length === 0 ? (
+            <Text style={[styles.cfgSub, { paddingVertical: spacing.lg }]}>No decks for this preset.</Text>
+          ) : (
+            turnDecks.map((d, idx) => {
+              const cpt = d.cardsPerTurn ?? 1;
+              return (
+                <View key={d.id}>
+                  {idx > 0 && <Divider />}
+                  <View style={styles.cfgLine}>
+                    <View style={[styles.cptIcon, { backgroundColor: `${DECK_THEME[d.type].accent}22` }]}>
+                      <Ionicons name={DECK_THEME[d.type].icon as any} size={15} color={DECK_THEME[d.type].accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cfgLabel}>{d.name}</Text>
+                      <Text style={styles.cfgSub}>
+                        {cpt === 0 ? "Skipped this turn" : `${cpt} card${cpt > 1 ? "s" : ""} per turn`}
+                      </Text>
+                    </View>
+                    <View style={styles.stepper}>
+                      <Pressable
+                        testID={`cpt-${d.id}-minus`}
+                        onPress={() => {
+                          haptic.light();
+                          updateDeck(d.id, { cardsPerTurn: Math.max(0, cpt - 1) });
+                        }}
+                        style={styles.stepBtn}
+                      >
+                        <Ionicons name="remove" size={18} color={colors.onSurface} />
+                      </Pressable>
+                      <Text testID={`cpt-${d.id}-value`} style={styles.stepValue}>{cpt}</Text>
+                      <Pressable
+                        testID={`cpt-${d.id}-plus`}
+                        onPress={() => {
+                          haptic.light();
+                          updateDeck(d.id, { cardsPerTurn: Math.min(4, cpt + 1) });
+                        }}
+                        style={styles.stepBtn}
+                      >
+                        <Ionicons name="add" size={18} color={colors.onSurface} />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -399,6 +457,7 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: "row", alignItems: "center", marginLeft: "auto", gap: spacing.md },
   stepBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   stepValue: { fontFamily: fonts.bodySemi, fontSize: fontSize.base, color: colors.onSurface, minWidth: 64, textAlign: "center" },
+  cptIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   footer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

@@ -54,6 +54,7 @@ export default function Play() {
   const [modifiers, setModifiers] = useState<string[]>(session?.sceneMods ?? []);
   const [flipShown, setFlipShown] = useState(false);
   const lastScore = useRef(0);
+  const lockingRef = useRef(false);
 
   const preset = session?.preset;
   const pulse = useSharedValue(1);
@@ -226,6 +227,8 @@ export default function Play() {
   };
 
   const lockScene = () => {
+    if (lockingRef.current || scene.length === 0 || !canLock) return;
+    lockingRef.current = true;
     sound.play("lock");
     haptic.heavy();
     const gained = sceneScore(scene, preset, momentum, modifiers, computeRestricted(scene, modifiers).active);
@@ -280,6 +283,7 @@ export default function Play() {
         streaks: newStreaks,
         elapsed,
       });
+      lockingRef.current = false;
     }, 0);
   };
 

@@ -15,6 +15,9 @@ const weightedPick = (cards: Card[]): Card => {
   return cards[cards.length - 1];
 };
 
+// runTurnDraw — the single source of truth for composing a turn's scene.
+// Each participating deck contributes `cardsPerTurn` cards (default 1, skipped if 0).
+// Repeats are allowed when cardsPerTurn exceeds available cards (simplest, no reshuffle).
 export const drawScene = (
   decks: Deck[],
   preset: Preset,
@@ -25,20 +28,21 @@ export const drawScene = (
   // carried-over cards lead the scene
   carryOver.forEach((c) => scene.push({ ...c, carry: true }));
 
-  preset.deckTypes.forEach((type) => {
-    const pool = decks.filter((d) => d.type === type);
-    let cards: Card[] = pool.flatMap((d) => d.cards);
+  decks.forEach((deck) => {
+    if (!preset.deckTypes.includes(deck.type)) return;
+    const count = deck.cardsPerTurn ?? 1;
+    if (count <= 0) return; // cardsPerTurn = 0 => skip entirely
+
+    let cards: Card[] = deck.cards;
     if (!preset.freeFlow) {
       cards = cards.filter((c) => c.tier <= preset.intensityMax);
     }
     if (cards.length === 0) return;
-    const chosen = preset.weightedDraw ? weightedPick(cards) : pick(cards);
-    const deck = pool.find((d) => d.cards.some((c) => c.id === chosen.id));
-    scene.push({
-      ...chosen,
-      deckType: type,
-      deckName: deck?.name ?? type,
-    });
+
+    for (let i = 0; i < count; i++) {
+      const chosen = preset.weightedDraw ? weightedPick(cards) : pick(cards);
+      scene.push({ ...chosen, deckType: deck.type, deckName: deck.name });
+    }
   });
 
   return scene;
